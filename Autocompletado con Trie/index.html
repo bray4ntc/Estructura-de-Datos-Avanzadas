@@ -1,1 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autocompletado con Trie</title>
+    <!-- Enlace a Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #suggestions {
+            border: 1px solid #ccc;
+            max-width: 300px;
+            margin-top: 10px;
+            z-index: 1000;
+        }
+
+        .suggestion {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .suggestion:hover {
+            background-color: #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Autocompletado con Trie</h1>
+        <div class="form-group">
+            <input type="text" id="input" class="form-control" placeholder="Escribe una palabra...">
+        </div>
+        <div id="suggestions" class="list-group"></div>
+    </div>
+
+    <script src="trie.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const trie = new Trie();
+
+            // Lista de palabras reservadas de JavaScript
+            const palabrasReservadas = [
+                "break", "case", "catch", "class", "const", "continue", "debugger",
+                "default", "delete", "do", "else", "export", "extends", "finally",
+                "for", "function", "if", "import", "in", "instanceof", "let", "new",
+                "return", "super", "switch", "this", "throw", "try", "typeof", "var",
+                "void", "while", "with", "yield", "await", "async"
+            ];
+
+            // Insertar palabras reservadas en el Trie
+            palabrasReservadas.forEach(palabra => trie.insert(palabra));
+
+            const input = document.getElementById('input');
+            const suggestions = document.getElementById('suggestions');
+
+            input.addEventListener('input', () => {
+                const query = input.value;
+                const sugerencias = trie.wordsWithPrefix(query);
+                suggestions.innerHTML = '';
+
+                sugerencias.forEach(sugerencia => {
+                    const div = document.createElement('div');
+                    div.classList.add('suggestion', 'list-group-item');
+                    div.textContent = sugerencia;
+                    suggestions.appendChild(div);
+
+                    div.addEventListener('click', () => {
+                        input.value = sugerencia;
+                        suggestions.innerHTML = '';
+                    });
+                });
+            });
+        });
+    </script>
+    <!-- Enlace a Bootstrap JS y jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
