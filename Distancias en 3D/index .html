@@ -1,1 +1,116 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejes X, Y, Z con Dos Puntos y Distancia en 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="info"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, axesHelper, puntos = [], distanciaTexto, linea;
+
+        function init() {
+            // Escena
+            scene = new THREE.Scene();
+
+            // Cámara
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+
+            // Renderizador
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Ejes
+            axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            // Texto de información
+            distanciaTexto = document.getElementById('info');
+
+            // Evento de click
+            window.addEventListener('click', onDocumentMouseDown, false);
+
+            animate();
+        }
+
+        function onDocumentMouseDown(event) {
+            // Normalizar las coordenadas del clic del ratón
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            // Proyectar el clic del ratón en el espacio 3D
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                agregarPunto(intersect.point);
+            }
+        }
+
+        function agregarPunto(pos) {
+            // Crear un punto
+            const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const punto = new THREE.Mesh(geometry, material);
+            punto.position.copy(pos);
+            scene.add(punto);
+            puntos.push(pos);
+
+            // Mostrar coordenadas del punto
+            distanciaTexto.textContent = `Punto ${puntos.length}: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`;
+
+            // Si hay dos puntos, calcular distancia y dibujar línea
+            if (puntos.length === 2) {
+                const distancia = puntos[0].distanceTo(puntos[1]);
+                distanciaTexto.textContent += ` | Distancia: ${distancia.toFixed(2)}`;
+
+                // Crear línea entre los puntos
+                const materialLinea = new THREE.LineBasicMaterial({ color: 0x0000ff });
+                const puntosLinea = [];
+                puntosLinea.push(puntos[0], puntos[1]);
+                const geometryLinea = new THREE.BufferGeometry().setFromPoints(puntosLinea);
+                linea = new THREE.Line(geometryLinea, materialLinea);
+                scene.add(linea);
+            } else if (puntos.length > 2) {
+                // Si ya hay una línea dibujada, removerla antes de agregar una nueva
+                scene.remove(linea);
+                linea.geometry.dispose();
+                linea.material.dispose();
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
