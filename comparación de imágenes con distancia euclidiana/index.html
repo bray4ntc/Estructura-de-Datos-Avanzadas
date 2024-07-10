@@ -1,1 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparación de Imágenes</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+        .image-container {
+            margin-bottom: 20px;
+        }
+        .result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Comparación de Imágenes</h1>
+        <div class="row image-container">
+            <div class="col-md-6">
+                <label for="image1">Subir Primera Imagen</label>
+                <input type="file" id="image1" class="form-control-file">
+                <img id="img1" src="" alt="" class="img-fluid mt-3">
+            </div>
+            <div class="col-md-6">
+                <label for="image2">Subir Segunda Imagen</label>
+                <input type="file" id="image2" class="form-control-file">
+                <img id="img2" src="" alt="" class="img-fluid mt-3">
+            </div>
+        </div>
+        <button id="compareButton" class="btn btn-primary">Comparar</button>
+        <div class="result" id="result"></div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/2.4.0/tf.min.js"></script>
+    <script>
+        function getImageData(image) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = image.width;
+            canvas.height = image.height;
+            context.drawImage(image, 0, 0, image.width, image.height);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            return imageData;
+        }
 
+        function extractFeatures(imageData) {
+            const data = imageData.data;
+            const length = data.length;
+            let r = 0, g = 0, b = 0;
+            for (let i = 0; i < length; i += 4) {
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+            }
+            const pixelCount = length / 4;
+            r = Math.round(r / pixelCount);
+            g = Math.round(g / pixelCount);
+            b = Math.round(b / pixelCount);
+            // Return a simple feature vector [R, G, B]
+            return [r, g, b];
+        }
+
+        function euclideanDistance(a, b) {
+            return Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
+        }
+
+        function compareImages(features1, features2) {
+            const distance = euclideanDistance(features1, features2);
+            const similarity = Math.max(0, 100 - distance); // Simple similarity measure
+            return similarity;
+        }
+
+        document.getElementById('image1').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('img1');
+                img.src = e.target.result;
+                img.onload = function() {
+                    this.dataset.features = JSON.stringify(extractFeatures(getImageData(img)));
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('image2').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('img2');
+                img.src = e.target.result;
+                img.onload = function() {
+                    this.dataset.features = JSON.stringify(extractFeatures(getImageData(img)));
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('compareButton').addEventListener('click', () => {
+            const img1 = document.getElementById('img1');
+            const img2 = document.getElementById('img2');
+            if (img1.dataset.features && img2.dataset.features) {
+                const features1 = JSON.parse(img1.dataset.features);
+                const features2 = JSON.parse(img2.dataset.features);
+                const similarity = compareImages(features1, features2);
+                document.getElementById('result').textContent = `Similitud: ${similarity.toFixed(2)}%`;
+            } else {
+                document.getElementById('result').textContent = 'Por favor, suba ambas imágenes.';
+            }
+        });
+    </script>
+</body>
+</html>
