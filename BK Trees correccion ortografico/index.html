@@ -1,1 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Protein Pattern Search Using BK Tree</title>
+</head>
+<body>
+    <h1>Protein Pattern Search</h1>
+    <label for="pattern">Enter protein pattern:</label>
+    <input type="text" id="pattern" />
+    <button onclick="searchPatterns()">Search Similar Patterns</button>
 
+    <h2>Matching Patterns:</h2>
+    <ul id="results"></ul>
+
+    <script>
+        class BKTree {
+            constructor(rootValue) {
+                this.root = { value: rootValue, children: {} };
+            }
+
+            add(word) {
+                let node = this.root;
+                while (true) {
+                    let currentWord = node.value;
+                    let distance = this.levenshteinDistance(word, currentWord);
+                    if (node.children[distance]) {
+                        node = node.children[distance];
+                    } else {
+                        node.children[distance] = { value: word, children: {} };
+                        break;
+                    }
+                }
+            }
+
+            search(word, maxDistance) {
+                let candidates = [this.root];
+                let results = [];
+                while (candidates.length > 0) {
+                    let node = candidates.pop();
+                    let currentWord = node.value;
+                    let distance = this.levenshteinDistance(word, currentWord);
+                    if (distance <= maxDistance) {
+                        results.push(currentWord);
+                    }
+                    for (let d in node.children) {
+                        if (d <= maxDistance + distance) {
+                            candidates.push(node.children[d]);
+                        }
+                    }
+                }
+                return results;
+            }
+
+            levenshteinDistance(s1, s2) {
+                if (s1.length < s2.length) [s1, s2] = [s2, s1];
+                if (s2.length === 0) return s1.length;
+                let previousRow = Array.from({ length: s2.length + 1 }, (_, i) => i);
+                for (let i = 0; i < s1.length; i++) {
+                    let currentRow = [i + 1];
+                    for (let j = 0; j < s2.length; j++) {
+                        let insertions = previousRow[j + 1] + 1;
+                        let deletions = currentRow[j] + 1;
+                        let substitutions = previousRow[j] + (s1[i] !== s2[j]);
+                        currentRow.push(Math.min(insertions, deletions, substitutions));
+                    }
+                    previousRow = currentRow;
+                }
+                return previousRow[previousRow.length - 1];
+            }
+        }
+
+        let tree = new BKTree("MKVTFISLL");
+        let patterns = ["MKVTFTSLL", "MKLTFISLM", "MLVTFLSLL", "MKVTFISLV"];
+        patterns.forEach(pattern => tree.add(pattern));
+
+        function searchPatterns() {
+            let pattern = document.getElementById("pattern").value;
+            let results = tree.search(pattern, 2);  // Allow up to 2 edits
+            let resultsList = document.getElementById("results");
+            resultsList.innerHTML = "";
+            results.forEach(result => {
+                let li = document.createElement("li");
+                li.textContent = result;
+                resultsList.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
