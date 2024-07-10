@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asignación de Memoria con Buddy-Tree</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            margin: 20px;
+        }
+        .block {
+            margin: 5px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .free {
+            background-color: #e0ffe0;
+        }
+        .allocated {
+            background-color: #ffe0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Asignación de Memoria con Buddy-Tree</h1>
+        <button onclick="asignarMemoria()">Asignar Memoria</button>
+        <button onclick="liberarMemoria()">Liberar Memoria</button>
+        <div id="memoria"></div>
+    </div>
+
+    <script>
+        class NodoBuddyTree {
+            constructor(tamano) {
+                this.tamano = tamano;
+                this.libre = true;
+                this.izquierda = null;
+                this.derecha = null;
+            }
+        }
+
+        class BuddyTree {
+            constructor(tamano) {
+                this.raiz = new NodoBuddyTree(tamano);
+            }
+
+            asignar(tamano) {
+                return this.asignarNodo(this.raiz, tamano);
+            }
+
+            asignarNodo(nodo, tamano) {
+                if (!nodo.libre || nodo.tamano < tamano) {
+                    return null;
+                }
+                if (nodo.tamano === tamano && nodo.libre) {
+                    nodo.libre = false;
+                    return nodo;
+                }
+                if (!nodo.izquierda && !nodo.derecha) {
+                    this.dividirNodo(nodo);
+                }
+                const nodoAsignado = this.asignarNodo(nodo.izquierda, tamano) || this.asignarNodo(nodo.derecha, tamano);
+                nodo.libre = !(nodo.izquierda.libre && nodo.derecha.libre);
+                return nodoAsignado;
+            }
+
+            dividirNodo(nodo) {
+                const mitadTamano = nodo.tamano / 2;
+                nodo.izquierda = new NodoBuddyTree(mitadTamano);
+                nodo.derecha = new NodoBuddyTree(mitadTamano);
+            }
+
+            liberar(nodo) {
+                this.liberarNodo(this.raiz, nodo);
+            }
+
+            liberarNodo(nodoActual, nodo) {
+                if (!nodoActual || nodoActual === nodo) {
+                    nodoActual.libre = true;
+                    return;
+                }
+                this.liberarNodo(nodoActual.izquierda, nodo);
+                this.liberarNodo(nodoActual.derecha, nodo);
+                nodoActual.libre = nodoActual.izquierda.libre && nodoActual.derecha.libre;
+                if (nodoActual.libre) {
+                    nodoActual.izquierda = null;
+                    nodoActual.derecha = null;
+                }
+            }
+
+            recorrer() {
+                const resultado = [];
+                this.recorrerNodo(this.raiz, resultado);
+                return resultado;
+            }
+
+            recorrerNodo(nodo, resultado) {
+                if (nodo) {
+                    resultado.push({
+                        tamano: nodo.tamano,
+                        libre: nodo.libre
+                    });
+                    this.recorrerNodo(nodo.izquierda, resultado);
+                    this.recorrerNodo(nodo.derecha, resultado);
+                }
+            }
+        }
+
+        const arbolBuddy = new BuddyTree(32); // Tamaño inicial de memoria
+        let bloquesAsignados = [];
+
+        function asignarMemoria() {
+            const tamano = parseInt(prompt("Ingrese el tamaño de memoria a asignar (debe ser una potencia de 2):"));
+            if (tamano && (tamano & (tamano - 1)) === 0) {
+                const nodo = arbolBuddy.asignar(tamano);
+                if (nodo) {
+                    bloquesAsignados.push(nodo);
+                    renderizarMemoria();
+                } else {
+                    alert("¡No hay suficiente memoria disponible!");
+                }
+            } else {
+                alert("¡Tamaño inválido! Por favor, ingrese una potencia de 2.");
+            }
+        }
+
+        function liberarMemoria() {
+            if (bloquesAsignados.length === 0) {
+                alert("¡No hay bloques de memoria asignados para liberar!");
+                return;
+            }
+            const nodo = bloquesAsignados.pop();
+            arbolBuddy.liberar(nodo);
+            renderizarMemoria();
+        }
+
+        function renderizarMemoria() {
+            const memoriaDiv = document.getElementById('memoria');
+            memoriaDiv.innerHTML = '';
+            const nodos = arbolBuddy.recorrer();
+            nodos.forEach(nodo => {
+                const bloqueDiv = document.createElement('div');
+                bloqueDiv.className = `block ${nodo.libre ? 'free' : 'allocated'}`;
+                bloqueDiv.innerText = `Tamaño: ${nodo.tamano}, ${nodo.libre ? 'Libre' : 'Asignado'}`;
+                memoriaDiv.appendChild(bloqueDiv);
+            });
+        }
+
+        renderizarMemoria();
+    </script>
+</body>
+</html>
