@@ -1,1 +1,223 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Biblioteca</h1>
+    <button onclick="loadBooks()">Cargar libros</button>
+    <input type="number" id="searchId" placeholder="Buscar libro por ID">
+    <button onclick="searchBook()">Buscar</button>
+    <div id="searchTime"></div>
+    <p id="searchResult"></p>
+
+    <h2>Insertar Libro</h2>
+    <input type="text" id="insertTitle" placeholder="Título">
+    <input type="text" id="insertAuthor" placeholder="Autor">
+    <button onclick="insertBook()">Insertar</button>
+
+    <h2>Eliminar Libro</h2>
+    <input type="number" id="deleteId" placeholder="ID del libro a eliminar">
+    <button onclick="deleteBook()">Eliminar</button>
+
+    <div id="booksList"></div>
+
+    <script>
+        class Node {
+            constructor(id, title, author) {
+                this.id = id;
+                this.title = title;
+                this.author = author;
+                this.left = null;
+                this.right = null;
+            }
+        }
+
+        class BinarySearchTree {
+            constructor() {
+                this.root = null;
+            }
+
+            insert(id, title, author) {
+                const newNode = new Node(id, title, author);
+                if (this.root === null) {
+                    this.root = newNode;
+                } else {
+                    this._insertNode(this.root, newNode);
+                }
+            }
+
+            _insertNode(node, newNode) {
+                if (newNode.id < node.id) {
+                    if (node.left === null) {
+                        node.left = newNode;
+                    } else {
+                        this._insertNode(node.left, newNode);
+                    }
+                } else {
+                    if (node.right === null) {
+                        node.right = newNode;
+                    } else {
+                        this._insertNode(node.right, newNode);
+                    }
+                }
+            }
+
+            search(id) {
+                return this._searchNode(this.root, id);
+            }
+
+            _searchNode(node, id) {
+                if (node === null) {
+                    return null;
+                }
+                if (id < node.id) {
+                    return this._searchNode(node.left, id);
+                } else if (id > node.id) {
+                    return this._searchNode(node.right, id);
+                } else {
+                    return node;
+                }
+            }
+
+            remove(id) {
+                this.root = this._removeNode(this.root, id);
+            }
+
+            _removeNode(node, id) {
+                if (node === null) {
+                    return null;
+                }
+                if (id < node.id) {
+                    node.left = this._removeNode(node.left, id);
+                    return node;
+                } else if (id > node.id) {
+                    node.right = this._removeNode(node.right, id);
+                    return node;
+                } else {
+                    if (node.left === null && node.right === null) {
+                        node = null;
+                        return node;
+                    }
+                    if (node.left === null) {
+                        node = node.right;
+                        return node;
+                    } else if (node.right === null) {
+                        node = node.left;
+                        return node;
+                    }
+                    const aux = this._findMinNode(node.right);
+                    node.id = aux.id;
+                    node.title = aux.title;
+                    node.author = aux.author;
+                    node.right = this._removeNode(node.right, aux.id);
+                    return node;
+                }
+            }
+
+            _findMinNode(node) {
+                if (node.left === null) {
+                    return node;
+                } else {
+                    return this._findMinNode(node.left);
+                }
+            }
+
+            inorderTraversal() {
+                this._inorderTraversalNode(this.root);
+            }
+
+            _inorderTraversalNode(node) {
+                if (node !== null) {
+                    this._inorderTraversalNode(node.left);
+                    console.log(`ID: ${node.id}, Title: ${node.title}, Author: ${node.author}`);
+                    this._inorderTraversalNode(node.right);
+                }
+            }
+        }
+
+        const bst = new BinarySearchTree();
+
+        function loadBooks() {
+            fetch('get_books.php')
+                .then(response => response.json())
+                .then(books => {
+                    books.forEach(book => {
+                        bst.insert(book.id, book.title, book.author);
+                    });
+                    displayBooks(books);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function displayBooks(books) {
+            const booksList = document.getElementById('booksList');
+            let html = '<table>';
+            html += '<tr><th>ID</th><th>Título</th><th>Autor</th></tr>';
+            books.forEach(book => {
+                html += `<tr><td>${book.id}</td><td>${book.title}</td><td>${book.author}</td></tr>`;
+            });
+            html += '</table>';
+            booksList.innerHTML = html;
+        }
+
+        function searchBook() {
+            const id = document.getElementById('searchId').value;
+            const startTime = performance.now();
+            const book = bst.search(parseInt(id));
+            const endTime = performance.now();
+            const searchTime = (endTime - startTime).toFixed(2);
+            document.getElementById('searchTime').textContent = `Tiempo de búsqueda: ${searchTime} ms`;
+
+            const resultElement = document.getElementById('searchResult');
+            if (book !== null) {
+                resultElement.textContent = `Libro encontrado: ID: ${book.id}, Título: ${book.title}, Autor: ${book.author}`;
+            } else {
+                resultElement.textContent = 'Libro no encontrado';
+            }
+        }
+
+        function insertBook() {
+            const title = document.getElementById('insertTitle').value;
+            const author = document.getElementById('insertAuthor').value;
+            
+            fetch('insert_book.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `title=${title}&author=${author}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log(data);
+                loadBooks(); // Recargar libros después de la inserción
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function deleteBook() {
+            const id = document.getElementById('deleteId').value;
+            
+            fetch('delete_book.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `id=${id}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log(data);
+                bst.remove(parseInt(id)); // Eliminar del BST en el frontend
+                loadBooks(); // Recargar libros después de la eliminación
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
