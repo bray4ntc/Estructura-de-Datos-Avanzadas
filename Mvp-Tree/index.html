@@ -1,1 +1,190 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-VP Tree con Visualización</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        input {
+            margin: 5px;
+            padding: 10px;
+            width: calc(100% - 22px);
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        svg {
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-VP Tree con Visualización</h1>
+        <button onclick="searchImages()">Buscar Imágenes Similares</button>
+        <p id="results"></p>
+    </div>
+    <svg width="600" height="400"></svg>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        class MultiVPTree {
+            constructor(points, numReferences = 2, leafSize = 10) {
+                this.numReferences = numReferences;
+                this.leafSize = leafSize;
+                this.root = this.buildTree(points);
+            }
+
+            buildTree(points) {
+                if (points.length <= this.leafSize) {
+                    return { points: points };
+                }
+                
+                const references = [];
+                for (let i = 0; i < this.numReferences; i++) {
+                    const index = Math.floor(Math.random() * points.length);
+                    references.push(points[index]);
+                }
+
+                const distances = points.map(point => references.map(ref => this.distance(point, ref)));
+                const medianDistances = references.map((_, i) => this.median(distances.map(d => d[i])));
+                const leftPoints = points.filter((_, idx) => distances[idx].every((d, i) => d <= medianDistances[i]));
+                const rightPoints = points.filter((_, idx) => !leftPoints.includes(points[idx]));
+
+                return {
+                    references: references,
+                    medianDistances: medianDistances,
+                    left: this.buildTree(leftPoints),
+                    right: this.buildTree(rightPoints)
+                };
+            }
+
+            search(query, k = 1) {
+                return this._search(this.root, query, k);
+            }
+
+            _search(node, query, k) {
+                if (node.points) {
+                    const distances = node.points.map(point => this.distance(query, point));
+                    return node.points.map((point, idx) => [point, distances[idx]]).sort((a, b) => a[1] - b[1]).slice(0, k);
+                }
+
+                const queryDistances = node.references.map(ref => this.distance(query, ref));
+                const exploreLeft = queryDistances.every((d, i) => d <= node.medianDistances[i]);
+                const bestBranch = exploreLeft ? node.left : node.right;
+                const otherBranch = exploreLeft ? node.right : node.left;
+
+                let bestResults = this._search(bestBranch, query, k);
+                const bestDistances = bestResults.map(result => result[1]);
+                if (queryDistances.some((d, i) => d <= node.medianDistances[i] + Math.max(...bestDistances))) {
+                    const otherResults = this._search(otherBranch, query, k);
+                    bestResults = bestResults.concat(otherResults).sort((a, b) => a[1] - b[1]).slice(0, k);
+                }
+                return bestResults;
+            }
+
+            distance(a, b) {
+                return Math.sqrt(a.reduce((sum, ai, i) => sum + (ai - b[i]) ** 2, 0));
+            }
+
+            median(values) {
+                values.sort((a, b) => a - b);
+                const mid = Math.floor(values.length / 2);
+                return values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid];
+            }
+        }
+
+        function searchImages() {
+            const points = [
+                [1.1, 0.2],
+                [0.3, 0.4],
+                [1.2, 0.3],
+                [0.2, 1.1],
+                [0.9, 1.1],
+                [0.1, 1.0]
+            ];
+            const tree = new MultiVPTree(points);
+            const query = [0.7, 0.7];
+            const results = tree.search(query, 3);
+
+            const resultsElement = document.getElementById('results');
+            resultsElement.innerHTML = '';
+            results.forEach(result => {
+                resultsElement.innerHTML += `Punto: ${result[0]}, Distancia: ${result[1].toFixed(2)}<br>`;
+            });
+
+            visualize(points, query, results.map(r => r[0]));
+        }
+
+        function visualize(points, query, results) {
+            const svg = d3.select("svg");
+            svg.selectAll("*").remove();
+
+            const margin = {top: 20, right: 20, bottom: 20, left: 20};
+            const width = +svg.attr("width") - margin.left - margin.right;
+            const height = +svg.attr("height") - margin.top - margin.bottom;
+            const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleLinear().domain([0, 1.2]).range([0, width]);
+            const y = d3.scaleLinear().domain([0, 1.2]).range([height, 0]);
+
+            g.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+            g.append("g").call(d3.axisLeft(y));
+
+            g.selectAll("circle")
+                .data(points)
+                .enter().append("circle")
+                .attr("cx", d => x(d[0]))
+                .attr("cy", d => y(d[1]))
+                .attr("r", 5)
+                .attr("fill", "steelblue");
+
+            g.selectAll("circle.query")
+                .data([query])
+                .enter().append("circle")
+                .attr("class", "query")
+                .attr("cx", d => x(d[0]))
+                .attr("cy", d => y(d[1]))
+                .attr("r", 7)
+                .attr("fill", "red");
+
+            g.selectAll("circle.result")
+                .data(results)
+                .enter().append("circle")
+                .attr("class", "result")
+                .attr("cx", d => x(d[0]))
+                .attr("cy", d => y(d[1]))
+                .attr("r", 7)
+                .attr("fill", "green");
+        }
+    </script>
+</body>
+</html>
